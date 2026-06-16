@@ -2,10 +2,7 @@ import os
 import json
 import importlib.util
 
-# Share the skills library from v2 — no duplication
-SKILLS_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "cq_agent_v2", "skills"
-)
+SKILLS_DIR = os.path.join(os.path.dirname(__file__), "..", "skills")
 
 
 def load_registry() -> list:
