@@ -62,10 +62,10 @@ _NODE_STEPS = {
 # Background runner
 # ---------------------------------------------------------------------------
 
-def _run_agent(api_key, model, user_request, image_path, agent_dir, thread_id, bridge):
+def _run_agent(api_key, model, user_request, image_path, agent_dir,
+               thread_id, visual_review, bridge):
     """Run the v4 graph in a background thread, streaming updates."""
     try:
-        # agent_dir is the CQ-editor root; add it so 'cq_agent_v4' is importable
         if agent_dir not in sys.path:
             sys.path.insert(0, agent_dir)
 
@@ -76,6 +76,7 @@ def _run_agent(api_key, model, user_request, image_path, agent_dir, thread_id, b
             "image_path":        image_path or "",
             "api_key":           api_key,
             "model":             model,
+            "visual_review":     visual_review,
             "recalled_shapes":   [],
             "plan":              "",
             "generated_code":    "",
@@ -121,7 +122,8 @@ def _run_agent(api_key, model, user_request, image_path, agent_dir, thread_id, b
         bridge.error_signal.emit(f"{e}\n\n{traceback.format_exc()}")
 
 
-def _resume_agent(api_key, model, agent_dir, thread_id, approved, feedback, bridge):
+def _resume_agent(api_key, model, agent_dir, thread_id, approved, feedback, bridge,
+                  cancel=False):
     """Resume graph after human approval/rejection."""
     try:
         if agent_dir not in sys.path:
@@ -131,11 +133,18 @@ def _resume_agent(api_key, model, agent_dir, thread_id, approved, feedback, brid
         from langgraph.types import Command
 
         config = {"configurable": {"thread_id": thread_id}}
-        resume_val = {"approved": approved, "feedback": feedback}
+        resume_val = {"approved": approved, "feedback": feedback, "cancel": cancel}
 
         for chunk in graph.stream(
             Command(resume=resume_val), config=config, stream_mode="updates"
         ):
+            # If rejection caused a recode → another approval interrupt
+            if "__interrupt__" in chunk:
+                interrupts = chunk["__interrupt__"]
+                val = interrupts[0].value if interrupts else {}
+                bridge.approval_needed.emit(val)
+                return  # widget will call _resume_agent again on next approve/reject
+
             node_name, updates = next(iter(chunk.items()))
             if node_name in _NODE_STEPS:
                 step_idx, msg = _NODE_STEPS[node_name]
@@ -152,7 +161,9 @@ def _resume_agent(api_key, model, agent_dir, thread_id, approved, feedback, brid
 
 def _emit_final(state: dict, bridge: _Bridge):
     code = state.get("final_code") or state.get("generated_code", "")
-    if code and state.get("human_approved", True):
+    # human_approved is only False when the user explicitly rejected — never block on it here
+    # (rejection re-routes back to code; if we reach _emit_final, the run is truly done)
+    if code:
         bridge.code_ready.emit(code)
     else:
         bridge.error_signal.emit(
@@ -175,6 +186,8 @@ class AIChatWidget(QWidget, ComponentMixin):
             {"name": "Model",          "type": "str",  "value": "gemini-2.0-flash"},
             {"name": "Agent Dir",      "type": "str",
              "value": r"C:\Users\vbu7\Desktop\cadquery\test\CQ-editor"},
+            {"name": "Visual Review",  "type": "bool", "value": True,
+             "tip": "ON=full pipeline (slower). OFF=fast mode, skips render/review/approval."},
         ],
     )
 
@@ -277,12 +290,19 @@ class AIChatWidget(QWidget, ComponentMixin):
         self._approve_btn.clicked.connect(self._on_approve)
         btn_row.addWidget(self._approve_btn)
 
-        self._reject_btn = QPushButton("Revise")
+        self._reject_btn = QPushButton("Recreate")
         self._reject_btn.setStyleSheet(
             "background:#f44336;color:white;border-radius:4px;padding:4px;"
         )
         self._reject_btn.clicked.connect(self._on_reject)
         btn_row.addWidget(self._reject_btn)
+
+        self._cancel_btn = QPushButton("Cancel")
+        self._cancel_btn.setStyleSheet(
+            "background:#888;color:white;border-radius:4px;padding:4px;"
+        )
+        self._cancel_btn.clicked.connect(self._on_cancel)
+        btn_row.addWidget(self._cancel_btn)
         ap_layout.addLayout(btn_row)
 
         layout.addWidget(self._approval_panel)
@@ -399,30 +419,43 @@ class AIChatWidget(QWidget, ComponentMixin):
         self._img_preview.clear()
         self._img_preview.setFixedHeight(0)
 
+        visual_review = self.preferences["Visual Review"]
         threading.Thread(
             target=_run_agent,
-            args=(api_key, model, text, image_path, agent_dir, self._thread_id, self._bridge),
+            args=(api_key, model, text, image_path, agent_dir,
+                  self._thread_id, visual_review, self._bridge),
             daemon=True,
         ).start()
 
     # ------------------------------------------------------------------
     def _on_approval_needed(self, payload: dict):
         self._highlight_step(5)
-        self._status.setText("Waiting for your approval...")
+        code_failed = payload.get("code_failed", False)
 
-        critique = payload.get("visual_critique", "")
-        self._critique_text.setText(critique or "Reviewer approved the shape.")
+        if code_failed:
+            self._status.setText("Code generation failed.")
+            self._critique_text.setText(
+                "The AI could not generate valid CadQuery code.\n"
+                "Click Recreate to try again with different approach, or Cancel to stop."
+            )
+            self._approve_btn.setEnabled(False)
+            self._add_bubble("Code generation failed — no shape was produced.", is_user=False)
+        else:
+            self._status.setText("Waiting for your approval...")
+            critique = payload.get("visual_critique", "")
+            self._critique_text.setText(critique or "Reviewer approved the shape.")
+            self._approve_btn.setEnabled(True)
 
-        # Show SVG preview (best available view)
-        svg_paths = payload.get("svg_paths", {})
-        svg_path = svg_paths.get("isometric") or svg_paths.get("front") or \
-                   next(iter(svg_paths.values()), None)
-        if svg_path and os.path.exists(str(svg_path)):
-            self._show_svg(svg_path)
+            # Show SVG preview (best available view)
+            svg_paths = payload.get("svg_paths", {})
+            svg_path = svg_paths.get("isometric") or svg_paths.get("front") or \
+                       next(iter(svg_paths.values()), None)
+            if svg_path and os.path.exists(str(svg_path)):
+                self._show_svg(svg_path)
+            self._add_bubble("Shape rendered — please review and approve or recreate.", is_user=False)
 
         self._feedback_input.setVisible(True)
         self._approval_panel.setVisible(True)
-        self._add_bubble("Shape rendered — please review and approve or revise.", is_user=False)
 
     def _show_svg(self, svg_path: str):
         try:
@@ -455,8 +488,9 @@ class AIChatWidget(QWidget, ComponentMixin):
         feedback = self._feedback_input.text().strip()
         self._feedback_input.clear()
         self._approval_panel.setVisible(False)
+        self._approve_btn.setEnabled(True)
         self._svg_widget.setFixedHeight(0)
-        self._status.setText("Revising...")
+        self._status.setText("Recreating...")
         self._highlight_step(2)
         api_key   = self.preferences["Google API Key"]
         model     = self.preferences["Model"]
@@ -464,6 +498,23 @@ class AIChatWidget(QWidget, ComponentMixin):
         threading.Thread(
             target=_resume_agent,
             args=(api_key, model, agent_dir, self._thread_id, False, feedback, self._bridge),
+            daemon=True,
+        ).start()
+
+    def _on_cancel(self):
+        self._feedback_input.clear()
+        self._approval_panel.setVisible(False)
+        self._approve_btn.setEnabled(True)
+        self._svg_widget.setFixedHeight(0)
+        self._status.setText("Cancelling...")
+        self._send_btn.setEnabled(True)
+        api_key   = self.preferences["Google API Key"]
+        model     = self.preferences["Model"]
+        agent_dir = self.preferences["Agent Dir"]
+        threading.Thread(
+            target=_resume_agent,
+            args=(api_key, model, agent_dir, self._thread_id, False, "", self._bridge),
+            kwargs={"cancel": True},
             daemon=True,
         ).start()
 

@@ -69,6 +69,7 @@ def code_node(state: AgentState) -> dict:
         plan=state.get("plan", ""),
         visual_critique=state.get("visual_critique", ""),
         recalled_shapes=state.get("recalled_shapes", []),
+        image_path=state.get("image_path", ""),
     )
     return {
         "generated_code":    result["code"],
@@ -120,6 +121,7 @@ def review_node(state: AgentState) -> dict:
         user_request=state["user_request"],
         plan=state.get("plan", ""),
         svg_paths=svg_paths,
+        image_path=state.get("image_path", ""),
     )
     return {
         "shape_approved":  result["approved"],
@@ -135,27 +137,42 @@ def review_node(state: AgentState) -> dict:
 def human_approval_node(state: AgentState) -> dict:
     svg_paths = state.get("svg_paths", {})
     visual_critique = state.get("visual_critique", "")
+    code = state.get("generated_code", "")
+    code_failed = not bool(code)  # coder produced nothing
 
     # Pause and ask the human
     response = interrupt({
-        "message":        "Shape looks correct. Do you approve loading this code?",
+        "message":        "Code generation failed — no shape to show." if code_failed
+                          else "Shape looks correct. Do you approve loading this code?",
         "svg_paths":      svg_paths,
         "visual_critique": visual_critique,
-        "code_preview":   "\n".join(
-            state.get("generated_code", "").splitlines()[:6]
-        ),
+        "code_preview":   "\n".join(code.splitlines()[:6]) if code else "",
+        "code_failed":    code_failed,
     })
+
+    if response.get("cancel"):
+        # User wants to abort the whole run
+        return {
+            "human_approved": False,
+            "human_feedback": "CANCELLED",
+            "final_message":  "Cancelled by user.",
+        }
 
     approved = response.get("approved", True)
     feedback = response.get("feedback", "")
+
+    # Always tell the coder the human rejected so it tries a different approach
+    if not approved:
+        rejection_msg = f"\n\nHUMAN REJECTED (attempt {state.get('repair_attempts', 0)})."
+        rejection_msg += f" Feedback: {feedback}" if feedback else " Try a completely different approach."
+        new_critique = visual_critique + rejection_msg
+    else:
+        new_critique = visual_critique
+
     return {
-        "human_approved": approved,
-        "human_feedback": feedback,
-        # If rejected, append feedback to visual_critique so coder sees it
-        "visual_critique": (
-            (visual_critique + "\n\nHUMAN FEEDBACK:\n" + feedback)
-            if not approved and feedback else visual_critique
-        ),
+        "human_approved":  approved,
+        "human_feedback":  feedback,
+        "visual_critique": new_critique,
     }
 
 
@@ -195,13 +212,28 @@ def route_after_review(state: AgentState) -> str:
 def route_after_human(state: AgentState) -> str:
     if state.get("human_approved", True):
         return "save_memory"
-    # Human rejected — loop back to coder (visual_critique updated with feedback)
+    if state.get("human_feedback") == "CANCELLED":
+        return "save_memory"  # exit cleanly with whatever code exists
     return "code"
 
 
 # ---------------------------------------------------------------------------
 # Build graph
 # ---------------------------------------------------------------------------
+
+def route_after_recall(state: AgentState) -> str:
+    """Skip planner if visual_review is off — coder calls plan_shape itself."""
+    if state.get("visual_review", True):
+        return "plan"
+    return "code"
+
+
+def route_after_code(state: AgentState) -> str:
+    """Skip render/review/approval if visual_review is off."""
+    if state.get("visual_review", True):
+        return "render"
+    return "save_memory"
+
 
 def build_graph():
     g = StateGraph(AgentState)
@@ -214,11 +246,17 @@ def build_graph():
     g.add_node("human_approval",  human_approval_node)
     g.add_node("save_memory",     save_memory_node)
 
-    g.add_edge(START,            "recall_memory")
-    g.add_edge("recall_memory",  "plan")
-    g.add_edge("plan",           "code")
-    g.add_edge("code",           "render")
-    g.add_edge("render",         "review")
+    g.add_edge(START, "recall_memory")
+    g.add_conditional_edges("recall_memory", route_after_recall, {
+        "plan": "plan",
+        "code": "code",
+    })
+    g.add_edge("plan", "code")
+    g.add_conditional_edges("code", route_after_code, {
+        "render":      "render",
+        "save_memory": "save_memory",
+    })
+    g.add_edge("render", "review")
 
     g.add_conditional_edges("review", route_after_review, {
         "human_approval": "human_approval",
@@ -231,7 +269,8 @@ def build_graph():
     g.add_edge("save_memory", END)
 
     checkpointer = MemorySaver()
-    return g.compile(checkpointer=checkpointer, interrupt_before=["human_approval"])
+    # interrupt() is called INSIDE human_approval_node — don't use interrupt_before
+    return g.compile(checkpointer=checkpointer)
 
 
 graph = build_graph()
