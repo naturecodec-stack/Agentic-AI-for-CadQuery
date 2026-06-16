@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import (
     QScrollArea, QFileDialog, QSizePolicy,
     QTextEdit,
 )
-from PyQt5.QtGui import QFont, QPixmap
+from PyQt5.QtGui import QFont, QPixmap, QTransform
 from PyQt5.QtSvg import QSvgWidget
 
 from pyqtgraph.parametertree import Parameter
@@ -461,6 +461,8 @@ class AIChatWidget(QWidget, ComponentMixin):
         try:
             pix = QPixmap(svg_path)
             if not pix.isNull():
+                # CadQuery SVGs use Y-up (CAD) but screen is Y-down — flip vertically
+                pix = pix.transformed(QTransform().scale(1, -1))
                 pix = pix.scaledToWidth(280, Qt.SmoothTransformation)
                 self._svg_widget.setPixmap(pix)
                 self._svg_widget.setFixedHeight(pix.height() + 8)
