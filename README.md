@@ -147,9 +147,21 @@ Open the **AI Agent v4** panel → Preferences:
 
 ---
 
-## Skill Library (27 skills)
+## Skill Library (54 skills)
+
+**Basic shapes:** sphere · cone · frustum · torus · hex prism · ring · pin
 
 **Features:** bracket · enclosure · pocket · stepped shaft · shell · revolve · text on face · helix · involute gear · sweep · ISO thread · grid holes · polar holes · counterbore hole · countersink hole · multi-section loft
+
+**Structural:** rib · boss · snap fit · T-slot extrusion · U/C/L channel · living hinge
+
+**Mechanical:** pulley · pipe flange · hook · handle · cable clip
+
+**Gears (cq_gears):** helical gear · bevel gear · ring gear · worm gear set · rack gear · herringbone gear · planetary gear set
+
+**Assemblies (cadquery-massembly):** MAssembly constrained assembly · bolt · nut · washer · bolt+nut · flange bolt pattern · plate with bolts
+
+**Electronics:** PCB standoff · heat sink
 
 **Assemblies:** bolt · nut · washer · bolt+nut · flange bolt pattern · plate with bolts · constrained assembly
 

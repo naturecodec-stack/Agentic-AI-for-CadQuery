@@ -278,6 +278,168 @@
     ]
   },
   {
+    "name": "sphere",
+    "file": "features/sphere.py",
+    "description": "Create a sphere or dome (partial sphere)",
+    "keywords": ["sphere", "ball", "globe", "dome", "hemisphere", "round ball", "spherical"]
+  },
+  {
+    "name": "cone",
+    "file": "features/cone.py",
+    "description": "Create a cone or frustum (truncated cone) by lofting two circles",
+    "keywords": ["cone", "frustum", "truncated cone", "pyramid", "tapered", "funnel", "conical"]
+  },
+  {
+    "name": "torus",
+    "file": "features/torus.py",
+    "description": "Create a torus (donut / ring shape)",
+    "keywords": ["torus", "donut", "doughnut", "ring shape", "circular ring", "tube ring", "toroid"]
+  },
+  {
+    "name": "hex_prism",
+    "file": "features/hex_prism.py",
+    "description": "Create a hexagonal prism for bolt heads, sockets, hex adapters",
+    "keywords": ["hex", "hexagon", "hexagonal", "hex prism", "hex body", "hex adapter", "socket head", "six sided"]
+  },
+  {
+    "name": "rib",
+    "file": "features/rib.py",
+    "description": "Create a flat plate with stiffening ribs",
+    "keywords": ["rib", "ribs", "stiffener", "stiffening rib", "gusset rib", "reinforcement rib", "webbed plate"]
+  },
+  {
+    "name": "boss",
+    "file": "features/boss.py",
+    "description": "Create a flat plate with cylindrical mounting bosses",
+    "keywords": ["boss", "mounting boss", "raised post", "cylinder boss", "mounting post", "locating boss", "injection mold boss"]
+  },
+  {
+    "name": "snap_fit",
+    "file": "features/snap_fit.py",
+    "description": "Create a cantilever snap-fit latch for clip-together parts",
+    "keywords": ["snap fit", "snap latch", "cantilever snap", "clip latch", "snap hook", "living snap", "plastic clip"]
+  },
+  {
+    "name": "t_slot",
+    "file": "features/t_slot.py",
+    "description": "Create a T-slot aluminium extrusion profile (2020, 3030, 4040)",
+    "keywords": ["t slot", "t-slot", "aluminium extrusion", "2020", "3030", "4040", "v slot", "extrusion profile", "framing extrusion"]
+  },
+  {
+    "name": "pulley",
+    "file": "features/pulley.py",
+    "description": "Create a V-groove or flat belt pulley with hub and bore",
+    "keywords": ["pulley", "v groove pulley", "belt pulley", "sheave", "flat pulley", "drive pulley", "timing pulley"]
+  },
+  {
+    "name": "pcb_standoff",
+    "file": "features/pcb_standoff.py",
+    "description": "Create PCB mounting standoffs — hex or round posts with threaded bore",
+    "keywords": ["pcb standoff", "standoff", "pcb mount", "board mount", "hex standoff", "electronics standoff", "mounting post pcb"]
+  },
+  {
+    "name": "heat_sink",
+    "file": "features/heat_sink.py",
+    "description": "Create a heat sink with parallel cooling fins on a base plate",
+    "keywords": ["heat sink", "heatsink", "cooling fins", "thermal sink", "fin array", "cpu cooler", "dissipator"]
+  },
+  {
+    "name": "cable_clip",
+    "file": "features/cable_clip.py",
+    "description": "Create a cable management clip that snaps over a wire or cable",
+    "keywords": ["cable clip", "wire clip", "cable clamp", "wire management", "cable holder", "cable saddle", "hose clip"]
+  },
+  {
+    "name": "hook",
+    "file": "features/hook.py",
+    "description": "Create a wall hook or S-hook for hanging objects",
+    "keywords": ["hook", "wall hook", "s hook", "coat hook", "hanging hook", "door hook", "peg hook"]
+  },
+  {
+    "name": "channel",
+    "file": "features/channel.py",
+    "description": "Create a U-channel, C-channel, or L-angle structural profile",
+    "keywords": ["channel", "u channel", "c channel", "l angle", "angle iron", "structural channel", "profile extrusion", "u profile"]
+  },
+  {
+    "name": "ring",
+    "file": "features/ring.py",
+    "description": "Create a flat ring, spacer, or custom washer",
+    "keywords": ["ring", "spacer", "flat ring", "annulus", "circular spacer", "shim ring", "distance ring", "sleeve"]
+  },
+  {
+    "name": "pin",
+    "file": "features/pin.py",
+    "description": "Create a dowel pin, locating pin, or spring pin",
+    "keywords": ["pin", "dowel pin", "locating pin", "alignment pin", "spring pin", "roll pin", "guide pin", "dowel"]
+  },
+  {
+    "name": "living_hinge",
+    "file": "features/living_hinge.py",
+    "description": "Create panels connected by a thin flexible living hinge for 3D printing",
+    "keywords": ["living hinge", "flexible hinge", "thin hinge", "print hinge", "fold hinge", "hinge plate", "flexible joint"]
+  },
+  {
+    "name": "pipe_flange",
+    "file": "features/pipe_flange.py",
+    "description": "Create a pipe section with flanges at both ends for bolted connections",
+    "keywords": ["pipe flange", "flanged pipe", "pipe fitting", "flange connection", "pipe joint", "bolted flange"]
+  },
+  {
+    "name": "handle",
+    "file": "features/handle.py",
+    "description": "Create a grip handle or door handle with mounting base",
+    "keywords": ["handle", "door handle", "grip handle", "pull handle", "bar handle", "cabinet handle", "hand grip"]
+  },
+  {
+    "name": "helical_gear",
+    "file": "features/helical_gear.py",
+    "description": "Create a helical gear — smoother and quieter than spur gears (requires cq_gears)",
+    "keywords": ["helical gear", "helix gear", "angled tooth gear", "smooth gear", "quiet gear", "cq_gears helical"]
+  },
+  {
+    "name": "bevel_gear",
+    "file": "features/bevel_gear.py",
+    "description": "Create a bevel gear for intersecting shafts — 45° miter or custom angle (requires cq_gears)",
+    "keywords": ["bevel gear", "miter gear", "angular gear", "right angle gear", "conical gear", "bevel drive"]
+  },
+  {
+    "name": "ring_gear",
+    "file": "features/ring_gear.py",
+    "description": "Create an internal ring gear for planetary gear sets (requires cq_gears)",
+    "keywords": ["ring gear", "internal gear", "annular gear", "planetary ring", "internal tooth gear"]
+  },
+  {
+    "name": "worm_gear_set",
+    "file": "features/worm_gear_set.py",
+    "description": "Create a worm and worm wheel set — high reduction, self-locking (requires cq_gears)",
+    "keywords": ["worm gear", "worm wheel", "worm drive", "worm and wheel", "self locking gear", "high reduction gear"]
+  },
+  {
+    "name": "rack_gear",
+    "file": "features/rack_gear.py",
+    "description": "Create a linear rack gear that mates with a spur or helical pinion (requires cq_gears)",
+    "keywords": ["rack gear", "linear gear", "rack and pinion", "rack", "linear rack", "linear motion gear"]
+  },
+  {
+    "name": "herringbone_gear",
+    "file": "features/herringbone_gear.py",
+    "description": "Create a herringbone double-helical gear — no axial thrust (requires cq_gears)",
+    "keywords": ["herringbone gear", "double helical gear", "v gear", "no thrust gear", "double helix gear"]
+  },
+  {
+    "name": "planetary_gear",
+    "file": "features/planetary_gear.py",
+    "description": "Create a planetary gear set with sun, planets and ring gears (requires cq_gears)",
+    "keywords": ["planetary gear", "epicyclic gear", "planet gear", "sun gear", "planetary set", "gearbox planetary"]
+  },
+  {
+    "name": "massembly",
+    "file": "assemblies/massembly.py",
+    "description": "Multi-part constrained assembly using cadquery-massembly MAssembly and Mate",
+    "keywords": ["massembly", "constrained assembly", "mate constraint", "mating parts", "assembly constraint", "cadquery assembly", "connected parts"]
+  },
+  {
     "name": "generic",
     "file": "generic/generic.py",
     "description": "General CadQuery code generation for shapes not covered by specific skills",
