@@ -86,24 +86,39 @@ def run_reviewer(api_key: str, model: str, user_request: str,
 
 
 def _svg_to_image(svg_path: str):
-    """Convert SVG to base64 PNG (needs cairosvg) or return raw SVG base64."""
+    """Convert SVG to base64 PNG using PyQt5 (no extra dependencies on Windows)."""
+    # Option 1: PyQt5 QSvgRenderer — always available in CQ-Editor
     try:
-        import cairosvg
-        import tempfile
+        from PyQt5.QtSvg import QSvgRenderer
+        from PyQt5.QtGui import QImage, QPainter, QColor
+        from PyQt5.QtCore import QSize, QBuffer, QIODevice
+
+        renderer = QSvgRenderer(svg_path)
+        if renderer.isValid():
+            img = QImage(QSize(640, 480), QImage.Format_ARGB32)
+            img.fill(QColor("white"))
+            painter = QPainter(img)
+            renderer.render(painter)
+            painter.end()
+
+            buf = QBuffer()
+            buf.open(QIODevice.WriteOnly)
+            img.save(buf, "PNG")
+            return "image/png", base64.b64encode(bytes(buf.data())).decode()
+    except Exception:
+        pass
+
+    # Option 2: cairosvg (works on Linux/Mac; Windows needs cairo DLL)
+    try:
+        import cairosvg, tempfile
         tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
         tmp.close()
-        cairosvg.svg2png(url=svg_path, write_to=tmp.name, output_width=600)
+        cairosvg.svg2png(url=svg_path, write_to=tmp.name, output_width=640)
         with open(tmp.name, "rb") as f:
             data = f.read()
         os.unlink(tmp.name)
         return "image/png", base64.b64encode(data).decode()
-    except ImportError:
+    except Exception:
         pass
 
-    # Fallback: send SVG directly (Gemini supports SVG in some API versions)
-    try:
-        with open(svg_path, "rb") as f:
-            data = f.read()
-        return "image/svg+xml", base64.b64encode(data).decode()
-    except Exception:
-        return None
+    return None

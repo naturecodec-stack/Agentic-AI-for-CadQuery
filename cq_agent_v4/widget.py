@@ -65,11 +65,11 @@ _NODE_STEPS = {
 def _run_agent(api_key, model, user_request, image_path, agent_dir, thread_id, bridge):
     """Run the v4 graph in a background thread, streaming updates."""
     try:
+        # agent_dir is the CQ-editor root; add it so 'cq_agent_v4' is importable
         if agent_dir not in sys.path:
-            sys.path.insert(0, os.path.dirname(agent_dir))
+            sys.path.insert(0, agent_dir)
 
         from cq_agent_v4.graph import graph
-        from langgraph.types import Command
 
         initial = {
             "user_request":      user_request,
@@ -95,8 +95,14 @@ def _run_agent(api_key, model, user_request, image_path, agent_dir, thread_id, b
 
         config = {"configurable": {"thread_id": thread_id}}
 
-        # --- First run (until interrupt) ---
         for chunk in graph.stream(initial, config=config, stream_mode="updates"):
+            # Interrupt from human_approval_node
+            if "__interrupt__" in chunk:
+                interrupts = chunk["__interrupt__"]
+                val = interrupts[0].value if interrupts else {}
+                bridge.approval_needed.emit(val)
+                return   # widget resumes via _resume_agent()
+
             node_name, updates = next(iter(chunk.items()))
             if node_name in _NODE_STEPS:
                 step_idx, msg = _NODE_STEPS[node_name]
@@ -107,21 +113,6 @@ def _run_agent(api_key, model, user_request, image_path, agent_dir, thread_id, b
                 if recalled:
                     bridge.memory_recalled.emit(recalled)
 
-        # --- Check if interrupted for human approval ---
-        state = graph.get_state(config)
-        if state.next and "human_approval" in state.next:
-            # Pull approval payload from the interrupt value
-            interrupt_val = {}
-            for task in state.tasks:
-                if hasattr(task, "interrupts") and task.interrupts:
-                    interrupt_val = task.interrupts[0].value
-                    break
-
-            bridge.approval_needed.emit(interrupt_val)
-            # Widget will call _resume_agent() when user approves/rejects
-            return
-
-        # --- No interrupt — check final state ---
         final = graph.get_state(config).values
         _emit_final(final, bridge)
 
@@ -134,7 +125,7 @@ def _resume_agent(api_key, model, agent_dir, thread_id, approved, feedback, brid
     """Resume graph after human approval/rejection."""
     try:
         if agent_dir not in sys.path:
-            sys.path.insert(0, os.path.dirname(agent_dir))
+            sys.path.insert(0, agent_dir)
 
         from cq_agent_v4.graph import graph
         from langgraph.types import Command
@@ -315,7 +306,7 @@ class AIChatWidget(QWidget, ComponentMixin):
         row.addWidget(self._attach_btn)
 
         self._input = QLineEdit()
-        self._input.setPlaceholderText("Describe your 3D shape...")
+        self._input.setPlaceholderText("Describe your shape, or attach an image and press Send...")
         self._input.returnPressed.connect(self._send)
         row.addWidget(self._input)
 
@@ -375,8 +366,12 @@ class AIChatWidget(QWidget, ComponentMixin):
     # ------------------------------------------------------------------
     def _send(self):
         text = self._input.text().strip()
-        if not text:
+
+        # Allow image-only: if no text but image attached, model reads the image itself
+        if not text and not self._image_path:
             return
+        if not text and self._image_path:
+            text = "Generate the 3D shape shown in this reference image."
 
         api_key = self.preferences["Google API Key"]
         if not api_key:
