@@ -1,0 +1,10 @@
+# Core AI / LLM
+langchain-google-genai>=2.0.0
+langchain-core>=0.3.0
+langgraph>=0.2.0
+
+# CadQuery (install separately via conda or pip — see README)
+# cadquery>=2.4.0
+
+# CQ-Editor optional extras
+# cq-warehouse  # for thread, bolt, nut skills

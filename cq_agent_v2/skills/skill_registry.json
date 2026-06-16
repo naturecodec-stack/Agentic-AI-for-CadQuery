@@ -1,0 +1,286 @@
+[
+  {
+    "name": "cbore_hole",
+    "file": "features/cbore_hole.py",
+    "description": "Create a box with a counterbored hole (wider at top, narrower through)",
+    "keywords": [
+      "counterbore",
+      "cbore",
+      "socket head",
+      "recessed hole"
+    ]
+  },
+  {
+    "name": "csk_hole",
+    "file": "features/csk_hole.py",
+    "description": "Create a box with a countersunk hole (conical recess at top)",
+    "keywords": [
+      "countersink",
+      "csk",
+      "flat head screw",
+      "countersunk"
+    ]
+  },
+  {
+    "name": "grid_holes",
+    "file": "features/grid_holes.py",
+    "description": "Create a plate with a rectangular grid array of holes",
+    "keywords": [
+      "grid holes",
+      "array of holes",
+      "multiple holes",
+      "hole pattern",
+      "rectangular array"
+    ]
+  },
+  {
+    "name": "polar_holes",
+    "file": "features/polar_holes.py",
+    "description": "Create a circular plate with holes arranged in a polar/circular pattern",
+    "keywords": [
+      "polar holes",
+      "circular pattern",
+      "bolt circle",
+      "flange",
+      "circular array",
+      "disc with holes"
+    ]
+  },
+  {
+    "name": "washer",
+    "file": "assemblies/washer.py",
+    "description": "Create a washer using cq_warehouse fastener library",
+    "keywords": [
+      "washer",
+      "plain washer",
+      "flat washer"
+    ]
+  },
+  {
+    "name": "bolt",
+    "file": "assemblies/bolt.py",
+    "description": "Create a hex head bolt or screw using cq_warehouse",
+    "keywords": [
+      "bolt",
+      "screw",
+      "hex head",
+      "fastener",
+      "M4",
+      "M5",
+      "M6",
+      "M8",
+      "M10",
+      "M12"
+    ]
+  },
+  {
+    "name": "nut",
+    "file": "assemblies/nut.py",
+    "description": "Create a hex nut using cq_warehouse fastener library",
+    "keywords": [
+      "nut",
+      "hex nut",
+      "fastener"
+    ]
+  },
+  {
+    "name": "helix",
+    "file": "features/helix.py",
+    "description": "Create a helical coil by sweeping a circular cross-section along a helix path",
+    "keywords": [
+      "helix",
+      "coil",
+      "spring",
+      "spiral",
+      "helical",
+      "thread path"
+    ]
+  },
+  {
+    "name": "multi_section_sweep",
+    "file": "features/multi_section_sweep.py",
+    "description": "Loft through multiple cross-section profiles (e.g. circle at base, square at top)",
+    "keywords": [
+      "multi section",
+      "multi profile",
+      "section sweep",
+      "loft sweep",
+      "morph",
+      "circle to square"
+    ]
+  },
+  {
+    "name": "constrained_assembly",
+    "file": "assemblies/constrained_assembly.py",
+    "description": "Build a multi-part assembly with named parts and geometric constraints solved automatically",
+    "keywords": [
+      "constrained assembly",
+      "constraints",
+      "mate",
+      "coincident",
+      "plane constraint",
+      "solve assembly"
+    ]
+  },
+  {
+    "name": "import_step",
+    "file": "import_export/import_step.py",
+    "description": "Import an existing STEP file into CadQuery and optionally translate it",
+    "keywords": [
+      "import",
+      "import step",
+      "load step",
+      "open step",
+      "STEP file",
+      "import CAD"
+    ]
+  },
+  {
+    "name": "export_step",
+    "file": "import_export/export_step.py",
+    "description": "Create a solid and export it to STEP, STL, or SVG file format",
+    "keywords": [
+      "export",
+      "export step",
+      "save step",
+      "export stl",
+      "save stl",
+      "output file"
+    ]
+  },
+  {
+    "name": "bolt_nut_assembly",
+    "file": "assemblies/bolt_nut_assembly.py",
+    "description": "Create an assembly of a hex bolt and matching hex nut using cq_warehouse",
+    "keywords": [
+      "bolt nut assembly",
+      "bolt and nut",
+      "fastener assembly"
+    ]
+  },
+  {
+    "name": "flange_bolt_pattern",
+    "file": "assemblies/flange_bolt_pattern.py",
+    "description": "Create a circular flange plate with a polar pattern of bolt holes",
+    "keywords": [
+      "flange bolt pattern",
+      "flange holes",
+      "bolt circle flange"
+    ]
+  },
+  {
+    "name": "plate_with_bolts",
+    "file": "assemblies/plate_with_bolts.py",
+    "description": "Create a rectangular plate with corner mounting holes sized for bolts",
+    "keywords": [
+      "plate with bolts",
+      "mounting plate",
+      "corner holes plate"
+    ]
+  },
+  {
+    "name": "bracket",
+    "file": "features/bracket.py",
+    "description": "L-shaped or T-shaped mounting bracket with optional gusset and mounting holes",
+    "keywords": [
+      "bracket", "L bracket", "mounting bracket", "angle bracket", "wall bracket",
+      "L-shape", "right angle bracket", "corner bracket", "T bracket"
+    ]
+  },
+  {
+    "name": "enclosure",
+    "file": "features/enclosure.py",
+    "description": "Hollow rectangular enclosure box with optional mounting bosses, lid slots and vent holes",
+    "keywords": [
+      "enclosure", "box enclosure", "project box", "electronics box", "housing",
+      "hollow box", "project enclosure", "case", "shell box", "mounting bosses"
+    ]
+  },
+  {
+    "name": "pocket",
+    "file": "features/pocket.py",
+    "description": "Plate with rectangular or circular blind pocket (cavity) and optional mounting holes",
+    "keywords": [
+      "pocket", "blind pocket", "cavity", "recess", "rectangular pocket",
+      "circular pocket", "slot pocket", "machined pocket", "cutout"
+    ]
+  },
+  {
+    "name": "stepped_shaft",
+    "file": "features/stepped_shaft.py",
+    "description": "Stepped cylindrical shaft with multiple diameters, optional keyway, and through-hole",
+    "keywords": [
+      "shaft", "stepped shaft", "multi diameter shaft", "step shaft",
+      "keyway shaft", "turned shaft", "spindle", "axle", "boss shaft", "shoulder bolt"
+    ]
+  },
+  {
+    "name": "shell",
+    "file": "features/shell.py",
+    "description": "Hollow out a solid box leaving open faces — negative thickness shells inward",
+    "keywords": [
+      "shell", "hollow", "hollow box", "hollow out", "thin wall", "open box",
+      "container", "shell thickness", "wall thickness"
+    ]
+  },
+  {
+    "name": "revolve",
+    "file": "features/revolve.py",
+    "description": "Revolve a 2D profile around an axis to create a solid of revolution (vase, bottle, shaft, ring)",
+    "keywords": [
+      "revolve", "revolution", "rotate profile", "lathe", "vase", "bottle",
+      "shaft", "ring", "solid of revolution", "axisymmetric", "turned part"
+    ]
+  },
+  {
+    "name": "text_on_face",
+    "file": "features/text_on_face.py",
+    "description": "Emboss or deboss text on a flat face of a box",
+    "keywords": [
+      "text", "emboss", "deboss", "engrave", "label", "lettering",
+      "text on face", "3D text", "raised text", "cut text", "logo"
+    ]
+  },
+  {
+    "name": "dxf_import",
+    "file": "import_export/dxf_import.py",
+    "description": "Import a 2D DXF file and extrude it into a 3D solid",
+    "keywords": [
+      "dxf", "import dxf", "dxf extrude", "2D to 3D", "dxf file",
+      "autocad", "dxf import", "extrude dxf"
+    ]
+  },
+  {
+    "name": "thread",
+    "file": "features/thread.py",
+    "description": "Create an ISO metric threaded rod (external) or threaded insert (internal) using cq_warehouse",
+    "keywords": [
+      "thread", "threaded rod", "threaded hole", "ISO thread", "M4", "M5", "M6", "M8", "M10", "M12",
+      "external thread", "internal thread", "threaded boss", "screw thread"
+    ]
+  },
+  {
+    "name": "sweep",
+    "file": "features/sweep.py",
+    "description": "Sweep a circular or rectangular profile along a 3D spline path to create a pipe, tube, or curved rod",
+    "keywords": [
+      "sweep", "pipe", "tube", "curved pipe", "3D path", "spline path",
+      "profile sweep", "curved rod", "hose", "conduit", "sweep along path"
+    ]
+  },
+  {
+    "name": "gear",
+    "file": "features/gear.py",
+    "description": "Generate an involute spur gear with correct tooth profile, configurable module, teeth count, and bore",
+    "keywords": [
+      "gear", "spur gear", "involute gear", "cog", "cogwheel", "gear wheel",
+      "gear tooth", "module gear", "transmission gear", "pinion"
+    ]
+  },
+  {
+    "name": "generic",
+    "file": "generic/generic.py",
+    "description": "General CadQuery code generation for shapes not covered by specific skills",
+    "keywords": []
+  }
+]
