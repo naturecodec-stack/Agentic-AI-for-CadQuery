@@ -1,39 +1,34 @@
-# CadQuery AI Agent
+# CadQuery AI Agent v4
 
-An AI assistant that lives inside [CQ-Editor](https://github.com/CadQuery/CQ-editor) and generates 3D CAD code from plain English descriptions or reference images.
+A full agentic AI that lives inside [CQ-Editor](https://github.com/CadQuery/CQ-editor) and generates 3D CAD code from plain English descriptions or reference images.
 
 **You type or attach an image** → AI plans, codes, renders, reviews, and self-corrects → **Working CadQuery code loaded into your editor**
 
 ---
 
-## Versions
-
-| Version | Description | Agents | Memory | Visual Review |
-|---------|-------------|--------|--------|---------------|
-| **v3** | Single ReAct agent with skill library | 1 | ❌ | ❌ |
-| **v4** | Full agentic pipeline | 3 | ✅ | ✅ |
-
----
-
-## V4 — Full Agentic AI (Recommended)
-
-V4 is a multi-agent pipeline that plans, codes, renders, visually reviews, and remembers.
+## What It Does
 
 ```
 You → [Memory] → [Plan] → [Code] → [Render] → [Review] → [Approve] → [Save] → CQ-Editor
 ```
 
-### Key Features
+Three AI agents collaborate automatically. You only step in at the final approval.
 
-- **Multi-agent pipeline** — Planner + Coder + Reviewer agents working together
-- **Image input** — attach a reference photo and v4 reproduces the exact shape
-- **Visual feedback** — renders 3 SVG projections and has the AI inspect them
+---
+
+## Key Features
+
+- **Image input** — attach a reference photo and the AI reproduces the exact shape
+- **Multi-agent pipeline** — Planner + Coder + Reviewer, each specialised
+- **Visual feedback** — renders 3 SVG projections and AI inspects them visually
 - **Long-term memory** — remembers shapes across sessions, recalls similar ones automatically
 - **Human approval gate** — you approve, recreate, or cancel before code is loaded
 - **Self-repair** — coder retries up to 5 times on execution errors
 - **Fast mode** — toggle off visual review for instant results on simple shapes
 
-### V4 Workflow
+---
+
+## Workflow
 
 ```
          YOUR REQUEST + IMAGE
@@ -62,44 +57,19 @@ Full documentation: [docs/v4_agentic_workflow.md](docs/v4_agentic_workflow.md)
 
 ---
 
-## V3 — Single ReAct Agent
-
-```
-You type a description
-        │
-  [Plan]    commits to ALL required features via plan_shape()
-        │
-  [Skills]  searches 27-skill library → loads template if match found
-        │
-  [Code]    writes complete CadQuery Python for every planned feature
-        │
-  [Exec]    runs code headlessly — retries up to 5 times on error
-        │
-  Code loaded into CQ-Editor
-```
-
-The **anti-simplification rule** forces the agent to implement every feature it planned.
-
----
-
 ## Project Structure
 
 ```
 cadquery-ai-agent/
 ├── docs/
-│   └── v4_agentic_workflow.md       Full v4 pipeline explanation
+│   └── v4_agentic_workflow.md       Full pipeline explanation
 ├── skills/                          27 shape templates the AI can load
 │   ├── skill_registry.json
 │   ├── features/                    bracket, gear, pocket, shaft, thread, sweep...
 │   ├── assemblies/                  bolt, nut, washer, flange, constrained assembly
 │   ├── import_export/               STEP import/export, DXF import
-│   └── generic/                     fallback for anything not in the library
-├── cq_agent_v3_langgraph/           LangGraph ReAct agent (v3)
-│   ├── agent_graph.py               main entry point
-│   ├── tools.py                     plan_shape, search_skills, use_skill, execute_cadquery
-│   ├── widget.py                    CQ-Editor PyQt5 panel
-│   └── nodes/                       planning, codegen, execute, repair
-├── cq_agent_v4/                     Full agentic pipeline (v4)
+│   └── generic/                     fallback template
+├── cq_agent_v4/                     Full agentic pipeline
 │   ├── state.py                     Pipeline state
 │   ├── graph.py                     LangGraph StateGraph — 7 nodes
 │   ├── widget.py                    CQ-Editor panel with approval UI
@@ -116,7 +86,6 @@ cadquery-ai-agent/
 └── cq_editor_integration/           Drop-in files for CQ-Editor
     ├── README.md
     └── widgets/
-        ├── ai_chat_agent_v3.py
         └── ai_chat_agent_v4.py
 ```
 
@@ -145,16 +114,9 @@ Recommended models: `gemini-2.5-pro` (best quality) · `gemini-2.0-flash` (faste
 
 ### 3. Install the CQ-Editor widget
 
-**For v4:**
 ```
 cq_editor_integration/widgets/ai_chat_agent_v4.py
   → CQ-editor/cq_editor/widgets/ai_chat_agent_v4.py
-```
-
-**For v3:**
-```
-cq_editor_integration/widgets/ai_chat_agent_v3.py
-  → CQ-editor/cq_editor/widgets/ai_chat_agent_v3.py
 ```
 
 See `cq_editor_integration/README.md` for the 3-line edit to `main_window.py`.
@@ -202,7 +164,7 @@ Open the **AI Agent v4** panel → Preferences:
 - CQ-Editor (bundled Python 3.12)
 - `langchain-google-genai`, `langgraph`, `langchain-core`
 - Google API key (free tier works for `gemini-2.0-flash`)
-- PyQt5 (bundled with CQ-Editor — used for SVG rendering in v4)
+- PyQt5 (bundled with CQ-Editor — used for SVG rendering)
 
 Optional: `cq-warehouse` — needed for thread, bolt, nut, and washer skills
 
