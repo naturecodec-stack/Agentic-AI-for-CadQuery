@@ -147,7 +147,7 @@ Open the **AI Agent v4** panel → Preferences:
 
 ---
 
-## Skill Library (54 skills)
+## Skill Library (59 skills)
 
 **Basic shapes:** sphere · cone · frustum · torus · hex prism · ring · pin
 
@@ -156,6 +156,8 @@ Open the **AI Agent v4** panel → Preferences:
 **Structural:** rib · boss · snap fit · T-slot extrusion · U/C/L channel · living hinge
 
 **Mechanical:** pulley · pipe flange · hook · handle · cable clip
+
+**Splines:** spline path sweep · spline profile (teardrop/leaf/blob/star) · spline surface (vase/hourglass) · NACA airfoil · spline transition (round→square)
 
 **Gears (cq_gears):** helical gear · bevel gear · ring gear · worm gear set · rack gear · herringbone gear · planetary gear set
 

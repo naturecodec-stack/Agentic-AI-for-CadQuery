@@ -440,6 +440,36 @@
     "keywords": ["massembly", "constrained assembly", "mate constraint", "mating parts", "assembly constraint", "cadquery assembly", "connected parts"]
   },
   {
+    "name": "spline_path_sweep",
+    "file": "features/spline_path_sweep.py",
+    "description": "Sweep a profile along a spline path — s-curve, wave, arc, spiral pipes and tubes",
+    "keywords": ["spline sweep", "sweep spline", "curved pipe", "s curve sweep", "wave sweep", "spiral sweep", "spline tube", "spline path", "curved tube", "curved rod"]
+  },
+  {
+    "name": "spline_profile",
+    "file": "features/spline_profile.py",
+    "description": "Extrude a closed spline profile — teardrop, leaf, blob, star shapes",
+    "keywords": ["spline profile", "organic shape", "teardrop", "leaf shape", "blob", "freeform extrude", "spline extrude", "organic extrusion", "custom profile"]
+  },
+  {
+    "name": "spline_surface",
+    "file": "features/spline_surface.py",
+    "description": "Loft between spline profiles — vase, hourglass, diamond, twist shapes",
+    "keywords": ["spline surface", "loft spline", "vase", "hourglass shape", "organic loft", "twisted shape", "loft profiles", "spline loft", "vase shape", "organic body"]
+  },
+  {
+    "name": "airfoil",
+    "file": "features/airfoil.py",
+    "description": "Generate a NACA 4-digit airfoil wing section using spline interpolation",
+    "keywords": ["airfoil", "aerofoil", "wing", "naca", "wing section", "naca 0012", "naca 2412", "wing profile", "aerofoil section", "blade profile", "hydrofoil"]
+  },
+  {
+    "name": "spline_transition",
+    "file": "features/spline_transition.py",
+    "description": "Smooth spline transition between two cross-sections — circle to square, round to rect",
+    "keywords": ["transition", "round to square", "circle to square", "shape transition", "cross section change", "spline transition", "morph shape", "taper transition", "reducer"]
+  },
+  {
     "name": "generic",
     "file": "generic/generic.py",
     "description": "General CadQuery code generation for shapes not covered by specific skills",
