@@ -147,7 +147,7 @@ Open the **AI Agent v4** panel → Preferences:
 
 ---
 
-## Skill Library (59 skills)
+## Skill Library (71 skills)
 
 **Basic shapes:** sphere · cone · frustum · torus · hex prism · ring · pin
 
@@ -158,6 +158,12 @@ Open the **AI Agent v4** panel → Preferences:
 **Mechanical:** pulley · pipe flange · hook · handle · cable clip
 
 **Splines:** spline path sweep · spline profile (teardrop/leaf/blob/star) · spline surface (vase/hourglass) · NACA airfoil · spline transition (round→square)
+
+**2D Primitives:** ellipse · wedge · partial cylinder · bezier profile · offset profile (frame/gasket)
+
+**Arrays & Patterns:** rectangular array (rarray) · polar array · mirror body · angled feature
+
+**Compound Shapes:** lidded box · boolean intersection
 
 **Gears (cq_gears):** helical gear · bevel gear · ring gear · worm gear set · rack gear · herringbone gear · planetary gear set
 

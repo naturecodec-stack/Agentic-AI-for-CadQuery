@@ -62,5 +62,20 @@ def save_shape(request: str, code: str, tags: list = None) -> None:
     _save(shapes[:100])
 
 
+def update_shape(index: int, request: str, code: str, tags: list = None) -> None:
+    """Update an existing memory entry by its position index in the full list."""
+    shapes = _load()
+    full_len = len(shapes)
+    # Curator receives last-15 slice; translate index back to full list
+    offset = max(0, full_len - 15)
+    real_idx = offset + index
+    if 0 <= real_idx < full_len:
+        shapes[real_idx] = {"request": request, "code": code, "tags": tags or []}
+        _save(shapes)
+    else:
+        # Index out of range — fall back to save_new
+        save_shape(request=request, code=code, tags=tags)
+
+
 def all_shapes() -> list:
     return _load()

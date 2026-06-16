@@ -45,16 +45,30 @@ class _Bridge(QObject):
 # Step definitions
 # ---------------------------------------------------------------------------
 
-_STEPS = ["Memory", "Plan", "Code", "Render", "Review", "Approve", "Save"]
+_STEPS = ["Memory", "Dims", "Plan", "Code", "Render", "Review", "Approve", "Save"]
 
 _NODE_STEPS = {
-    "recall_memory":  (0, "Searching memory..."),
-    "plan":           (1, "Planning shape..."),
-    "code":           (2, "Writing code..."),
-    "render":         (3, "Rendering shape..."),
-    "review":         (4, "Reviewing visually..."),
-    "human_approval": (5, "Waiting for approval..."),
-    "save_memory":    (6, "Saving to memory..."),
+    # Step 0 — Memory phase
+    "recall_memory":         (0, "Searching memory..."),
+    "assembly_decomposer":   (0, "Detecting parts..."),
+    # Step 1 — Dimension extraction
+    "dimension_extractor":   (1, "Extracting dimensions..."),
+    # Step 2 — Planning phase
+    "plan":                  (2, "Planning shape..."),
+    "skill_selector":        (2, "Selecting skills..."),
+    # Step 3 — Code phase
+    "code":                  (3, "Writing code..."),
+    "code_critic":           (3, "Checking plan vs code..."),
+    "repair_specialist":     (3, "Repairing code..."),
+    # Step 4 — Render phase
+    "render":                (4, "Rendering shape..."),
+    "dimension_validator":   (4, "Validating proportions..."),
+    # Step 5 — Review
+    "review":                (5, "Reviewing visually..."),
+    # Step 6 — Approval
+    "human_approval":        (6, "Waiting for approval..."),
+    # Step 7 — Save
+    "save_memory":           (7, "Saving to memory..."),
 }
 
 

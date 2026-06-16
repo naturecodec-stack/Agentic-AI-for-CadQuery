@@ -470,6 +470,78 @@
     "keywords": ["transition", "round to square", "circle to square", "shape transition", "cross section change", "spline transition", "morph shape", "taper transition", "reducer"]
   },
   {
+    "name": "ellipse",
+    "file": "features/ellipse.py",
+    "description": "Create an ellipse or elliptical tube extruded into a solid",
+    "keywords": ["ellipse", "oval", "elliptical", "ellipse extrude", "oval shape", "oblong solid", "egg shape"]
+  },
+  {
+    "name": "slot_plate",
+    "file": "features/slot_plate.py",
+    "description": "Plate with slotted holes (oblong slots) for adjustable mounting using slot2D",
+    "keywords": ["slot", "slotted hole", "oblong hole", "slot2D", "adjustable mount", "elongated hole", "slot plate", "slotted bracket"]
+  },
+  {
+    "name": "bezier_profile",
+    "file": "features/bezier_profile.py",
+    "description": "Extrude a Bezier curve profile — wave fin, petal, arch, freeform shapes",
+    "keywords": ["bezier", "bezier curve", "bezier profile", "petal shape", "arch shape", "wave fin", "smooth curve", "freeform bezier"]
+  },
+  {
+    "name": "wedge",
+    "file": "features/wedge.py",
+    "description": "Create a wedge, ramp, door stop or tapered block",
+    "keywords": ["wedge", "ramp", "door stop", "tapered block", "chamfer block", "slope", "inclined plane", "wedge shape"]
+  },
+  {
+    "name": "partial_cylinder",
+    "file": "features/partial_cylinder.py",
+    "description": "Create a partial cylinder, arc solid, or curved hollow wall segment",
+    "keywords": ["partial cylinder", "arc solid", "curved wall", "half cylinder", "quarter cylinder", "arc segment", "curved panel", "sector"]
+  },
+  {
+    "name": "rectangular_array",
+    "file": "features/rectangular_array.py",
+    "description": "Plate with rectangular grid array of holes, bosses or pockets using rarray",
+    "keywords": ["rectangular array", "grid array", "rarray", "hole grid", "grid pattern", "matrix holes", "array of features", "grid of holes"]
+  },
+  {
+    "name": "polar_array",
+    "file": "features/polar_array.py",
+    "description": "Disc or ring with features in a polar circular pattern using polarArray",
+    "keywords": ["polar array", "circular array", "polarArray", "rotational pattern", "circular pattern", "radial array", "rotational array"]
+  },
+  {
+    "name": "mirror_body",
+    "file": "features/mirror_body.py",
+    "description": "Build half a shape and mirror it for perfect symmetry",
+    "keywords": ["mirror", "symmetric", "mirrored body", "mirror shape", "half and mirror", "symmetric body", "bilateral symmetry"]
+  },
+  {
+    "name": "angled_feature",
+    "file": "features/angled_feature.py",
+    "description": "Add a hole, slot or pocket on a tilted workplane — angled holes, inclined features",
+    "keywords": ["angled hole", "tilted hole", "inclined feature", "angled workplane", "tilted workplane", "diagonal hole", "angled bore", "inclined pocket"]
+  },
+  {
+    "name": "lidded_box",
+    "file": "features/lidded_box.py",
+    "description": "Hollow shell box with a separate friction-fit lid",
+    "keywords": ["lidded box", "box with lid", "container lid", "snap fit lid", "friction lid", "box and cover", "enclosure lid", "box cover"]
+  },
+  {
+    "name": "boolean_intersection",
+    "file": "features/boolean_intersection.py",
+    "description": "Intersect two solids to create lens, crescent or organic shapes",
+    "keywords": ["intersection", "boolean intersection", "intersect", "lens shape", "crescent", "overlap shape", "common volume", "boolean common"]
+  },
+  {
+    "name": "offset_profile",
+    "file": "features/offset_profile.py",
+    "description": "Offset a 2D profile inward or outward — frames, gaskets, thick borders",
+    "keywords": ["offset", "offset2D", "frame", "gasket", "border", "thick outline", "profile offset", "frame shape", "picture frame"]
+  },
+  {
     "name": "generic",
     "file": "generic/generic.py",
     "description": "General CadQuery code generation for shapes not covered by specific skills",

@@ -7,6 +7,9 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 
 SYSTEM = """You are an expert CadQuery programmer.
 
+PRIME DIRECTIVE: If a reference image is provided, your code must reproduce that EXACT shape.
+The image overrides everything else. Do not simplify, do not add features not in the image.
+
 You have a PLAN (feature list) that you MUST implement completely.
 You also have tools to search the skill library and validate your code.
 
@@ -52,13 +55,17 @@ CONVENTIONS:
 
 
 def run_coder(api_key: str, model: str, plan: str,
-              visual_critique: str = "", recalled_shapes: list = None) -> dict:
+              visual_critique: str = "", recalled_shapes: list = None,
+              image_path: str = "", dimension_hints: dict = None,
+              skill_recommendations: list = None,
+              code_critic_feedback: str = "") -> dict:
     """Run the coder agent. Returns {"code": str, "success": bool, "messages": list}."""
     from langgraph.prebuilt import create_react_agent
     from langchain_google_genai import ChatGoogleGenerativeAI
     from ..tools.cadquery_tools import execute_cadquery
     from ..tools.skill_tools import search_skills, list_skills, use_skill
-    import inspect
+    from .dimension_extractor import format_hints_for_planner
+    import inspect, base64, os
 
     llm = ChatGoogleGenerativeAI(model=model, google_api_key=api_key, temperature=0.1)
     system_msg = SystemMessage(content=SYSTEM)
@@ -71,6 +78,16 @@ def run_coder(api_key: str, model: str, plan: str,
 
     # Build the prompt with plan + optional critique + optional memory
     prompt_parts = [f"FEATURE PLAN (implement ALL of these):\n{plan}"]
+
+    if dimension_hints:
+        prompt_parts.append("\n" + format_hints_for_planner(dimension_hints))
+
+    if skill_recommendations:
+        from .skill_selector import format_skill_recommendations
+        prompt_parts.append("\n" + format_skill_recommendations(skill_recommendations))
+
+    if code_critic_feedback:
+        prompt_parts.append(f"\n{code_critic_feedback}")
 
     if visual_critique:
         prompt_parts.append(
@@ -88,16 +105,40 @@ def run_coder(api_key: str, model: str, plan: str,
         "then call execute_cadquery to validate it."
     )
 
-    result = agent.invoke({"messages": [HumanMessage(content="\n".join(prompt_parts))]})
+    # Build message content — add image if provided so coder can see target shape
+    content = [{"type": "text", "text": "\n".join(prompt_parts)}]
+    if image_path and os.path.exists(image_path):
+        with open(image_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        ext = os.path.splitext(image_path)[1].lower().lstrip(".")
+        mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+                "png": "image/png", "webp": "image/webp"}.get(ext, "image/png")
+        content.insert(0, {"type": "text",
+                            "text": "REFERENCE IMAGE (reproduce this exact shape):"})
+        content.insert(1, {"type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{b64}"}})
+
+    result = agent.invoke({"messages": [HumanMessage(content=content)]})
     messages = result.get("messages", [])
 
-    # Extract the last code that got SUCCESS
     code = _extract_code(messages)
+    error = _extract_last_error(messages) if not code else ""
     return {
-        "code": code,
+        "code":    code,
         "success": bool(code),
+        "error":   error,
         "messages": messages,
     }
+
+
+def _extract_last_error(messages: list) -> str:
+    """Return the last error from execute_cadquery tool calls."""
+    for msg in reversed(messages):
+        if isinstance(msg, ToolMessage):
+            content = str(msg.content)
+            if "SUCCESS" not in content and len(content) > 10:
+                return content[:500]
+    return ""
 
 
 def _extract_code(messages: list) -> str:
