@@ -1,0 +1,681 @@
+"""
+AI Agent v5 — Full agentic workflow panel for CQ-Editor.
+
+Local models via Ollama — no API key required.
+
+Same 13-node pipeline as v4 but driven by:
+  text_model   — tool-calling LLM (planner, coder, critic, repair, skill_selector)
+  vision_model — vision LLM (dimension_extractor, assembly_decomposer, reviewer, dim_validator)
+
+Recommended models:
+  text_model:   qwen2.5-coder:7b
+  vision_model: llava:7b
+"""
+
+import os
+import sys
+import threading
+import uuid
+
+from PyQt5.QtCore import Qt, pyqtSignal, QObject
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout,
+    QLineEdit, QPushButton, QLabel,
+    QScrollArea, QFileDialog, QSizePolicy,
+    QTextEdit,
+)
+from PyQt5.QtGui import QFont, QPixmap, QTransform
+from PyQt5.QtSvg import QSvgWidget
+
+from pyqtgraph.parametertree import Parameter
+from ..mixins import ComponentMixin
+
+
+# ---------------------------------------------------------------------------
+# Signal bridge
+# ---------------------------------------------------------------------------
+
+class _Bridge(QObject):
+    step_signal       = pyqtSignal(int)
+    status_signal     = pyqtSignal(str)
+    code_ready        = pyqtSignal(str)
+    error_signal      = pyqtSignal(str)
+    approval_needed   = pyqtSignal(dict)   # interrupts — carries svg paths + critique
+    memory_recalled   = pyqtSignal(list)   # recalled similar shapes
+    ollama_status     = pyqtSignal(str, bool)  # (message, is_ok)
+
+
+# ---------------------------------------------------------------------------
+# Step definitions
+# ---------------------------------------------------------------------------
+
+_STEPS = ["Memory", "Dims", "Plan", "Code", "Render", "Review", "Approve", "Save"]
+
+_NODE_STEPS = {
+    # Step 0 — Memory phase
+    "recall_memory":         (0, "Searching memory..."),
+    "assembly_decomposer":   (0, "Detecting parts..."),
+    # Step 1 — Dimension extraction
+    "dimension_extractor":   (1, "Extracting dimensions..."),
+    # Step 2 — Planning phase
+    "plan":                  (2, "Planning shape..."),
+    "skill_selector":        (2, "Selecting skills..."),
+    # Step 3 — Code phase
+    "code":                  (3, "Writing code..."),
+    "code_critic":           (3, "Checking plan vs code..."),
+    "repair_specialist":     (3, "Repairing code..."),
+    # Step 4 — Render phase
+    "render":                (4, "Rendering shape..."),
+    "dimension_validator":   (4, "Validating proportions..."),
+    # Step 5 — Review
+    "review":                (5, "Reviewing visually..."),
+    # Step 6 — Approval
+    "human_approval":        (6, "Waiting for approval..."),
+    # Step 7 — Save
+    "save_memory":           (7, "Saving to memory..."),
+}
+
+
+# ---------------------------------------------------------------------------
+# Background runner
+# ---------------------------------------------------------------------------
+
+def _run_agent(ollama_url, text_model, vision_model,
+               user_request, image_path, agent_dir,
+               thread_id, visual_review, bridge):
+    """Run the v5 graph in a background thread, streaming updates."""
+    try:
+        if agent_dir not in sys.path:
+            sys.path.insert(0, agent_dir)
+
+        from cq_agent_v5.graph import graph
+
+        initial = {
+            "user_request":       user_request,
+            "image_path":         image_path or "",
+            "ollama_url":         ollama_url,
+            "text_model":         text_model,
+            "vision_model":       vision_model,
+            "visual_review":      visual_review,
+            "recalled_shapes":    [],
+            "plan":               "",
+            "generated_code":     "",
+            "execution_success":  False,
+            "execution_error":    "",
+            "repair_attempts":    0,
+            "svg_paths":          {},
+            "visual_critique":    "",
+            "visual_loops":       0,
+            "shape_approved":     False,
+            "human_approved":     False,
+            "human_feedback":     "",
+            "final_code":         "",
+            "final_message":      "",
+            "messages":           [],
+            "dimension_hints":    {},
+            "is_assembly":        False,
+            "sub_shapes":         [],
+            "skill_recommendations": [],
+            "code_critic_feedback":  "",
+            "critic_loops":       0,
+            "dimension_validation":  {},
+            "repair_used":        False,
+        }
+
+        config = {"configurable": {"thread_id": thread_id}}
+
+        for chunk in graph.stream(initial, config=config, stream_mode="updates"):
+            # Interrupt from human_approval_node
+            if "__interrupt__" in chunk:
+                interrupts = chunk["__interrupt__"]
+                val = interrupts[0].value if interrupts else {}
+                bridge.approval_needed.emit(val)
+                return   # widget resumes via _resume_agent()
+
+            node_name, updates = next(iter(chunk.items()))
+            if node_name in _NODE_STEPS:
+                step_idx, msg = _NODE_STEPS[node_name]
+                bridge.step_signal.emit(step_idx)
+                bridge.status_signal.emit(msg)
+            if node_name == "recall_memory":
+                recalled = updates.get("recalled_shapes", [])
+                if recalled:
+                    bridge.memory_recalled.emit(recalled)
+
+        final = graph.get_state(config).values
+        _emit_final(final, bridge)
+
+    except Exception as e:
+        import traceback
+        bridge.error_signal.emit(f"{e}\n\n{traceback.format_exc()}")
+
+
+def _resume_agent(ollama_url, text_model, vision_model,
+                  agent_dir, thread_id, approved, feedback, bridge,
+                  cancel=False):
+    """Resume graph after human approval/rejection."""
+    try:
+        if agent_dir not in sys.path:
+            sys.path.insert(0, agent_dir)
+
+        from cq_agent_v5.graph import graph
+        from langgraph.types import Command
+
+        config = {"configurable": {"thread_id": thread_id}}
+        resume_val = {"approved": approved, "feedback": feedback, "cancel": cancel}
+
+        for chunk in graph.stream(
+            Command(resume=resume_val), config=config, stream_mode="updates"
+        ):
+            # If rejection caused a recode → another approval interrupt
+            if "__interrupt__" in chunk:
+                interrupts = chunk["__interrupt__"]
+                val = interrupts[0].value if interrupts else {}
+                bridge.approval_needed.emit(val)
+                return  # widget will call _resume_agent again on next approve/reject
+
+            node_name, updates = next(iter(chunk.items()))
+            if node_name in _NODE_STEPS:
+                step_idx, msg = _NODE_STEPS[node_name]
+                bridge.step_signal.emit(step_idx)
+                bridge.status_signal.emit(msg)
+
+        final = graph.get_state(config).values
+        _emit_final(final, bridge)
+
+    except Exception as e:
+        import traceback
+        bridge.error_signal.emit(f"{e}\n\n{traceback.format_exc()}")
+
+
+def _check_ollama_connection(ollama_url, agent_dir, bridge):
+    """Background thread — check Ollama and emit status."""
+    try:
+        if agent_dir not in sys.path:
+            sys.path.insert(0, agent_dir)
+        from cq_agent_v5.agents.llm_factory import check_ollama
+        is_ok, models, error = check_ollama(ollama_url)
+        if is_ok:
+            msg = f"Ollama connected — {len(models)} model(s) available"
+            bridge.ollama_status.emit(msg, True)
+        else:
+            bridge.ollama_status.emit(f"Ollama not reachable: {error}", False)
+    except Exception as e:
+        bridge.ollama_status.emit(f"Check failed: {e}", False)
+
+
+def _emit_final(state: dict, bridge: _Bridge):
+    code = state.get("final_code") or state.get("generated_code", "")
+    if code:
+        bridge.code_ready.emit(code)
+    else:
+        bridge.error_signal.emit(
+            state.get("final_message") or "Agent finished without producing code."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Main widget
+# ---------------------------------------------------------------------------
+
+class AIChatWidget(QWidget, ComponentMixin):
+
+    name = "AI Agent v5"
+
+    preferences = Parameter.create(
+        name="Preferences",
+        children=[
+            {"name": "Ollama URL",    "type": "str",  "value": "http://localhost:11434",
+             "tip": "URL of the running Ollama server"},
+            {"name": "Text Model",    "type": "str",  "value": "qwen2.5-coder:7b",
+             "tip": "Tool-calling model for planning, coding, critic, repair"},
+            {"name": "Vision Model",  "type": "str",  "value": "llava:7b",
+             "tip": "Vision model for image analysis, review, dimension validation"},
+            {"name": "Agent Dir",     "type": "str",
+             "value": r"C:\Users\vbu7\Desktop\cadquery\test\CQ-editor"},
+            {"name": "Visual Review", "type": "bool", "value": True,
+             "tip": "ON=full pipeline (slower). OFF=fast mode, skips render/review/approval."},
+        ],
+    )
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        ComponentMixin.__init__(self)
+        self._editor     = None
+        self._image_path = None
+        self._thread_id  = None
+
+        self._bridge = _Bridge()
+        self._bridge.step_signal.connect(self._highlight_step)
+        self._bridge.status_signal.connect(self._on_status)
+        self._bridge.code_ready.connect(self._on_code_ready)
+        self._bridge.error_signal.connect(self._on_error)
+        self._bridge.approval_needed.connect(self._on_approval_needed)
+        self._bridge.memory_recalled.connect(self._on_memory_recalled)
+        self._bridge.ollama_status.connect(self._on_ollama_status)
+
+        self._build_ui()
+        # Check Ollama on startup
+        self._ping_ollama()
+
+    # ------------------------------------------------------------------
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(4)
+
+        # Title + Ollama status row
+        title_row = QHBoxLayout()
+        title = QLabel("AI Agent v5  (local Ollama)")
+        title.setFont(QFont("Arial", 10, QFont.Bold))
+        title_row.addWidget(title)
+
+        self._ollama_indicator = QLabel("● checking...")
+        self._ollama_indicator.setStyleSheet("color:gray;font-size:9px;")
+        self._ollama_indicator.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        title_row.addWidget(self._ollama_indicator)
+
+        ping_btn = QPushButton("Test")
+        ping_btn.setFixedWidth(38)
+        ping_btn.setFixedHeight(18)
+        ping_btn.setStyleSheet("font-size:9px;")
+        ping_btn.setToolTip("Test Ollama connection")
+        ping_btn.clicked.connect(self._ping_ollama)
+        title_row.addWidget(ping_btn)
+
+        layout.addLayout(title_row)
+
+        # Pipeline steps
+        pipeline = QHBoxLayout()
+        self._step_labels = []
+        for s in _STEPS:
+            lbl = QLabel(s)
+            lbl.setAlignment(Qt.AlignCenter)
+            lbl.setFixedHeight(18)
+            lbl.setStyleSheet("background:#ddd;border-radius:3px;font-size:9px;padding:1px 3px;")
+            pipeline.addWidget(lbl)
+            self._step_labels.append(lbl)
+        layout.addLayout(pipeline)
+
+        # Memory recall notice
+        self._memory_label = QLabel("")
+        self._memory_label.setStyleSheet("color:#555;font-size:9px;")
+        self._memory_label.setWordWrap(True)
+        layout.addWidget(self._memory_label)
+
+        # Chat scroll area
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._scroll.setMinimumHeight(80)
+        self._scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._chat_container = QWidget()
+        self._chat_layout = QVBoxLayout(self._chat_container)
+        self._chat_layout.setAlignment(Qt.AlignTop)
+        self._chat_layout.setSpacing(4)
+        self._scroll.setWidget(self._chat_container)
+        layout.addWidget(self._scroll, stretch=1)
+
+        # SVG preview (hidden until render)
+        self._svg_widget = QLabel("")
+        self._svg_widget.setAlignment(Qt.AlignCenter)
+        self._svg_widget.setFixedHeight(0)
+        self._svg_widget.setStyleSheet(
+            "background:#f5f5f5;border:1px solid #ccc;border-radius:4px;"
+        )
+        layout.addWidget(self._svg_widget)
+
+        # Approval panel (hidden until needed)
+        self._approval_panel = QWidget()
+        self._approval_panel.setVisible(False)
+        ap_layout = QVBoxLayout(self._approval_panel)
+        ap_layout.setContentsMargins(0, 0, 0, 0)
+        ap_layout.setSpacing(4)
+
+        critique_label = QLabel("Reviewer feedback:")
+        critique_label.setStyleSheet("font-weight:bold;font-size:10px;")
+        ap_layout.addWidget(critique_label)
+
+        self._critique_text = QLabel("")
+        self._critique_text.setWordWrap(True)
+        self._critique_text.setStyleSheet(
+            "background:#fff8dc;border:1px solid #ddd;border-radius:4px;padding:4px;font-size:10px;"
+        )
+        ap_layout.addWidget(self._critique_text)
+
+        self._feedback_input = QLineEdit()
+        self._feedback_input.setPlaceholderText("Optional: type what to change before rejecting...")
+        self._feedback_input.setVisible(False)
+        ap_layout.addWidget(self._feedback_input)
+
+        btn_row = QHBoxLayout()
+        self._approve_btn = QPushButton("Approve & Load")
+        self._approve_btn.setStyleSheet(
+            "background:#4CAF50;color:white;border-radius:4px;padding:4px;"
+        )
+        self._approve_btn.clicked.connect(self._on_approve)
+        btn_row.addWidget(self._approve_btn)
+
+        self._reject_btn = QPushButton("Recreate")
+        self._reject_btn.setStyleSheet(
+            "background:#f44336;color:white;border-radius:4px;padding:4px;"
+        )
+        self._reject_btn.clicked.connect(self._on_reject)
+        btn_row.addWidget(self._reject_btn)
+
+        self._cancel_btn = QPushButton("Cancel")
+        self._cancel_btn.setStyleSheet(
+            "background:#888;color:white;border-radius:4px;padding:4px;"
+        )
+        self._cancel_btn.clicked.connect(self._on_cancel)
+        btn_row.addWidget(self._cancel_btn)
+        ap_layout.addLayout(btn_row)
+
+        layout.addWidget(self._approval_panel)
+
+        # Image preview
+        self._img_preview = QLabel("")
+        self._img_preview.setFixedHeight(0)
+        layout.addWidget(self._img_preview)
+
+        # Status bar
+        self._status = QLabel("")
+        self._status.setStyleSheet("color:gray;font-size:10px;")
+        layout.addWidget(self._status)
+
+        # Input row
+        row = QHBoxLayout()
+        self._attach_btn = QPushButton("📎")
+        self._attach_btn.setFixedWidth(32)
+        self._attach_btn.setToolTip("Attach reference image")
+        self._attach_btn.clicked.connect(self._attach_image)
+        row.addWidget(self._attach_btn)
+
+        self._input = QLineEdit()
+        self._input.setPlaceholderText("Describe your shape, or attach an image and press Send...")
+        self._input.returnPressed.connect(self._send)
+        row.addWidget(self._input)
+
+        self._send_btn = QPushButton("Send")
+        self._send_btn.setFixedWidth(55)
+        self._send_btn.clicked.connect(self._send)
+        row.addWidget(self._send_btn)
+        layout.addLayout(row)
+
+        clear_btn = QPushButton("Clear chat")
+        clear_btn.setFixedHeight(22)
+        clear_btn.setStyleSheet("font-size:9px;")
+        clear_btn.clicked.connect(self._clear_chat)
+        layout.addWidget(clear_btn)
+
+    # ------------------------------------------------------------------
+    def _ping_ollama(self):
+        self._ollama_indicator.setText("● checking...")
+        self._ollama_indicator.setStyleSheet("color:gray;font-size:9px;")
+        agent_dir   = self.preferences["Agent Dir"]
+        ollama_url  = self.preferences["Ollama URL"]
+        threading.Thread(
+            target=_check_ollama_connection,
+            args=(ollama_url, agent_dir, self._bridge),
+            daemon=True,
+        ).start()
+
+    def _on_ollama_status(self, msg: str, is_ok: bool):
+        color = "#4CAF50" if is_ok else "#f44336"
+        dot   = "●" if is_ok else "●"
+        self._ollama_indicator.setText(f"{dot} {msg}")
+        self._ollama_indicator.setStyleSheet(f"color:{color};font-size:9px;")
+
+    def set_editor(self, editor):
+        self._editor = editor
+
+    # ------------------------------------------------------------------
+    def _attach_image(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Reference Image", "", "Images (*.png *.jpg *.jpeg *.webp)"
+        )
+        if path:
+            self._image_path = path
+            pix = QPixmap(path).scaledToWidth(150, Qt.SmoothTransformation)
+            self._img_preview.setPixmap(pix)
+            self._img_preview.setFixedHeight(pix.height() + 6)
+            self._status.setText(f"Image: {os.path.basename(path)}")
+
+    # ------------------------------------------------------------------
+    def _send(self):
+        text = self._input.text().strip()
+
+        if not text and not self._image_path:
+            return
+        if not text and self._image_path:
+            text = "Generate the 3D shape shown in this reference image."
+
+        ollama_url  = self.preferences["Ollama URL"]
+        text_model  = self.preferences["Text Model"]
+        vision_model = self.preferences["Vision Model"]
+
+        if not ollama_url:
+            self._add_bubble("Ollama URL not set — check Preferences.", is_user=False)
+            return
+        if not text_model:
+            self._add_bubble("Text Model not set — check Preferences.", is_user=False)
+            return
+
+        self._add_bubble(text, is_user=True)
+        if self._image_path:
+            self._add_image_bubble(self._image_path)
+
+        self._input.clear()
+        self._send_btn.setEnabled(False)
+        self._approval_panel.setVisible(False)
+        self._svg_widget.setFixedHeight(0)
+        self._memory_label.setText("")
+        self._reset_steps()
+        self._highlight_step(0)
+        self._status.setText("Starting...")
+
+        self._thread_id = str(uuid.uuid4())
+        agent_dir    = self.preferences["Agent Dir"]
+        image_path   = self._image_path
+        visual_review = self.preferences["Visual Review"]
+
+        self._image_path = None
+        self._img_preview.clear()
+        self._img_preview.setFixedHeight(0)
+
+        threading.Thread(
+            target=_run_agent,
+            args=(ollama_url, text_model, vision_model,
+                  text, image_path, agent_dir,
+                  self._thread_id, visual_review, self._bridge),
+            daemon=True,
+        ).start()
+
+    # ------------------------------------------------------------------
+    def _on_approval_needed(self, payload: dict):
+        self._highlight_step(5)
+        code_failed = payload.get("code_failed", False)
+
+        if code_failed:
+            self._status.setText("Code generation failed.")
+            self._critique_text.setText(
+                "The AI could not generate valid CadQuery code.\n"
+                "Click Recreate to try again with a different approach, or Cancel to stop."
+            )
+            self._approve_btn.setEnabled(False)
+            self._add_bubble("Code generation failed — no shape was produced.", is_user=False)
+        else:
+            self._status.setText("Waiting for your approval...")
+            critique = payload.get("visual_critique", "")
+            self._critique_text.setText(critique or "Reviewer approved the shape.")
+            self._approve_btn.setEnabled(True)
+
+            svg_paths = payload.get("svg_paths", {})
+            svg_path = svg_paths.get("isometric") or svg_paths.get("front") or \
+                       next(iter(svg_paths.values()), None)
+            if svg_path and os.path.exists(str(svg_path)):
+                self._show_svg(svg_path)
+            self._add_bubble("Shape rendered — please review and approve or recreate.", is_user=False)
+
+        self._feedback_input.setVisible(True)
+        self._approval_panel.setVisible(True)
+
+    def _show_svg(self, svg_path: str):
+        try:
+            pix = QPixmap(svg_path)
+            if not pix.isNull():
+                pix = pix.transformed(QTransform().scale(1, -1))
+                pix = pix.scaledToWidth(280, Qt.SmoothTransformation)
+                self._svg_widget.setPixmap(pix)
+                self._svg_widget.setFixedHeight(pix.height() + 8)
+                return
+        except Exception:
+            pass
+        self._svg_widget.setText(f"SVG: {svg_path}")
+        self._svg_widget.setFixedHeight(24)
+
+    # ------------------------------------------------------------------
+    def _on_approve(self):
+        self._approval_panel.setVisible(False)
+        self._status.setText("Approved — continuing...")
+        ollama_url   = self.preferences["Ollama URL"]
+        text_model   = self.preferences["Text Model"]
+        vision_model = self.preferences["Vision Model"]
+        agent_dir    = self.preferences["Agent Dir"]
+        threading.Thread(
+            target=_resume_agent,
+            args=(ollama_url, text_model, vision_model,
+                  agent_dir, self._thread_id, True, "", self._bridge),
+            daemon=True,
+        ).start()
+
+    def _on_reject(self):
+        feedback = self._feedback_input.text().strip()
+        self._feedback_input.clear()
+        self._approval_panel.setVisible(False)
+        self._approve_btn.setEnabled(True)
+        self._svg_widget.setFixedHeight(0)
+        self._status.setText("Recreating...")
+        self._highlight_step(2)
+        ollama_url   = self.preferences["Ollama URL"]
+        text_model   = self.preferences["Text Model"]
+        vision_model = self.preferences["Vision Model"]
+        agent_dir    = self.preferences["Agent Dir"]
+        threading.Thread(
+            target=_resume_agent,
+            args=(ollama_url, text_model, vision_model,
+                  agent_dir, self._thread_id, False, feedback, self._bridge),
+            daemon=True,
+        ).start()
+
+    def _on_cancel(self):
+        self._feedback_input.clear()
+        self._approval_panel.setVisible(False)
+        self._approve_btn.setEnabled(True)
+        self._svg_widget.setFixedHeight(0)
+        self._status.setText("Cancelling...")
+        self._send_btn.setEnabled(True)
+        ollama_url   = self.preferences["Ollama URL"]
+        text_model   = self.preferences["Text Model"]
+        vision_model = self.preferences["Vision Model"]
+        agent_dir    = self.preferences["Agent Dir"]
+        threading.Thread(
+            target=_resume_agent,
+            args=(ollama_url, text_model, vision_model,
+                  agent_dir, self._thread_id, False, "", self._bridge),
+            kwargs={"cancel": True},
+            daemon=True,
+        ).start()
+
+    # ------------------------------------------------------------------
+    def _on_code_ready(self, code: str):
+        self._send_btn.setEnabled(True)
+        self._highlight_step(len(_STEPS) - 1)
+        self._status.setText("Done — code loaded and saved to memory.")
+        preview = "\n".join(code.splitlines()[:4])
+        if len(code.splitlines()) > 4:
+            preview += "\n..."
+        self._add_bubble(f"Generated & saved:\n{preview}", is_user=False)
+        if self._editor:
+            self._editor.set_text(code)
+
+    def _on_status(self, msg: str):
+        self._status.setText(msg)
+
+    def _on_error(self, msg: str):
+        self._send_btn.setEnabled(True)
+        self._reset_steps()
+        self._status.setText("Error.")
+        self._add_bubble(f"Error: {msg}", is_user=False)
+
+    def _on_memory_recalled(self, shapes: list):
+        if shapes:
+            names = ", ".join(s.get("request", "?")[:40] for s in shapes[:3])
+            self._memory_label.setText(f"Memory: found {len(shapes)} similar shape(s) — {names}")
+
+    # ------------------------------------------------------------------
+    def _highlight_step(self, active: int):
+        for i, lbl in enumerate(self._step_labels):
+            if i == active:
+                lbl.setStyleSheet(
+                    "background:#4CAF50;border-radius:3px;font-size:9px;"
+                    "padding:1px 3px;color:white;"
+                )
+            elif i < active:
+                lbl.setStyleSheet(
+                    "background:#81C784;border-radius:3px;font-size:9px;"
+                    "padding:1px 3px;color:white;"
+                )
+            else:
+                lbl.setStyleSheet(
+                    "background:#ddd;border-radius:3px;font-size:9px;padding:1px 3px;"
+                )
+
+    def _reset_steps(self):
+        for lbl in self._step_labels:
+            lbl.setStyleSheet(
+                "background:#ddd;border-radius:3px;font-size:9px;padding:1px 3px;"
+            )
+
+    def _add_bubble(self, text: str, is_user: bool):
+        lbl = QLabel(text)
+        lbl.setWordWrap(True)
+        lbl.setMargin(6)
+        if is_user:
+            lbl.setStyleSheet(
+                "background:#DCF8C6;border-radius:6px;padding:4px;color:#000;"
+            )
+            lbl.setAlignment(Qt.AlignRight)
+        else:
+            lbl.setStyleSheet(
+                "background:#ECECEC;border-radius:6px;padding:4px;color:#000;"
+            )
+            lbl.setAlignment(Qt.AlignLeft)
+        self._chat_layout.addWidget(lbl)
+        self._scroll.verticalScrollBar().setValue(
+            self._scroll.verticalScrollBar().maximum()
+        )
+
+    def _add_image_bubble(self, path: str):
+        lbl = QLabel()
+        pix = QPixmap(path).scaledToWidth(150, Qt.SmoothTransformation)
+        lbl.setPixmap(pix)
+        lbl.setAlignment(Qt.AlignRight)
+        self._chat_layout.addWidget(lbl)
+
+    def _clear_chat(self):
+        while self._chat_layout.count():
+            item = self._chat_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._status.setText("")
+        self._memory_label.setText("")
+        self._reset_steps()
+        self._svg_widget.setFixedHeight(0)
+        self._approval_panel.setVisible(False)
+
+    def toolbarActions(self):
+        return []
+
+    def menuActions(self):
+        return {}

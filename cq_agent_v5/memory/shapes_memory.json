@@ -1,0 +1,43 @@
+[
+  {
+    "request": "Generate the 3D shape shown in this reference image.",
+    "code": "import cadquery as cq\n\n# Dimensions\nlength = 150\nwidth = 25\nthickness = 3\nhole_dia = 5\n# The image shows holes near the ends. Let's assume 10mm from the edge.\n# Center of hole = 150/2 - 10 = 65mm from center.\nhole_offset = 65 \nslot_length = 80\nslot_width = 10\n\n# 1. Create the base plate\nresult = cq.Workplane(\"XY\").box(length, width, thickness)\n\n# 2. Add the two holes at the ends\n# The holes are centered on the width axis.\nresult = result.faces(\">Z\").workplane().pushPoints([(-hole_offset, 0), (hole_offset, 0)]).hole(hole_dia)\n\n# 3. Add the central elongated slot\n# The slot is centered at (0,0)\nresult = result.faces(\">Z\").workplane().slot2D(slot_length, slot_width).cutThruAll()\n\nshow_object(result)\n",
+    "tags": [
+      "generate",
+      "shape",
+      "shown",
+      "this",
+      "reference",
+      "image."
+    ]
+  },
+  {
+    "request": "its wrong",
+    "code": "import cadquery as cq\n\nbase_l  = 80.0\nbase_w  = 40.0\nbase_t  = 5.0\nwall_h  = 40.0\nwall_t  = 5.0\nhole_d  = 5.0\ninset   = 10.0\nn_base  = 2\nn_wall  = 2\nfil_r   = 2.0\ngusset  = True\n\n# Base plate\nbase = cq.Workplane(\"XY\").box(base_l, base_w, base_t).translate((0, 0, base_t / 2))\n\n# Vertical wall (joins at back edge of base)\nwall = (\n    cq.Workplane(\"XY\")\n    .box(wall_t, base_w, wall_h)\n    .translate((-(base_l / 2 - wall_t / 2), 0, base_t + wall_h / 2))\n)\n\nbody = base.union(wall)\n\n# Optional gusset (triangle in the inside corner)\nif gusset:\n    gusset_pts = [\n        (0, 0),\n        (min(base_l * 0.4, 30), 0),\n        (0, min(wall_h * 0.4, 20)),\n    ]\n    g = (\n        cq.Workplane(\"XZ\")\n        .polyline(gusset_pts).close()\n        .extrude(base_w)\n        .translate((-(base_l / 2 - wall_t), -base_w / 2, base_t))\n    )\n    body = body.union(g)\n\n# Mounting holes — base plate\nif n_base >= 2:\n    x_pos = base_l / 2 - inset\n    body = (\n        body.faces(\">Z\").workplane(origin=(0, 0, base_t))\n        .pushPoints([(x_pos - (base_l - 2*inset) * (i / max(n_base-1,1)), 0) for i in range(n_base)])\n        .hole(hole_d)\n    ) if n_base > 1 else (\n        body.faces(\">Z\").workplane(origin=(0, 0, base_t))\n        .pushPoints([(0, 0)])\n        .hole(hole_d)\n    )\n\n# Mounting holes — wall\nif n_wall >= 2:\n    x_off = -(base_l / 2 - wall_t / 2)\n    y_positions = [base_w / 2 - inset - (base_w - 2*inset) * i / max(n_wall-1,1) for i in range(n_wall)]\n    body = (\n        body.faces(\"<X\").workplane()\n        .pushPoints([(y, base_t + wall_h / 2) for y in y_positions])\n        .hole(hole_d)\n    )\n\n# Fillet\nif fil_r > 0:\n    try:\n        body = body.edges(\"|Z\").fillet(fil_r)\n    except Exception:\n        pass  # skip if fillet fails on complex geometry\n\nresult = body\nshow_object(result)\n",
+    "tags": [
+      "its",
+      "wrong"
+    ]
+  },
+  {
+    "request": "Make an L-shaped bracket with 4 mounting holes and rounded edges",
+    "code": "import cadquery as cq\n\n# Parameters\nbase_l  = 80.0\nbase_w  = 40.0\nbase_t  = 5.0\nwall_h  = 60.0\nwall_t  = 5.0\nhole_d  = 5.0\ninset   = 10.0\nfil_r   = 1.0\n\n# 1. Base plate\nbase = cq.Workplane(\"XY\").box(base_l, base_w, base_t).translate((0, 0, base_t / 2))\n\n# 2. Vertical wall (joins at back edge of base)\nwall = (\n    cq.Workplane(\"XY\")\n    .box(wall_t, base_w, wall_h)\n    .translate((-(base_l / 2 - wall_t / 2), 0, base_t + wall_h / 2))\n)\n\nbody = base.union(wall)\n\n# 3. Mounting holes — base plate (2 holes)\nx_pos = base_l / 2 - inset\nbody = (\n    body.faces(\">Z\").workplane(origin=(0, 0, base_t))\n    .pushPoints([(x_pos - (base_l - 2*inset) * (i / 1), 0) for i in range(2)])\n    .hole(hole_d)\n)\n\n# 4. Mounting holes — wall (2 holes)\ny_positions = [wall_h / 2 - inset - (wall_h - 2*inset) * i / 1 for i in range(2)]\nbody = (\n    body.faces(\"<X\").workplane()\n    .pushPoints([(0, y) for y in y_positions])\n    .hole(hole_d)\n)\n\n# 5. Fillet external edges\nresult = body.edges(\"|Z\").fillet(fil_r)\n\nshow_object(result)",
+    "tags": [
+      "make",
+      "l-shaped",
+      "bracket",
+      "mounting",
+      "holes",
+      "rounded",
+      "edges"
+    ]
+  },
+  {
+    "request": "test bracket with holes",
+    "code": "import cadquery as cq\nresult = cq.Workplane(\"XY\").box(50,30,10)\nshow_object(result)",
+    "tags": [
+      "bracket",
+      "holes"
+    ]
+  }
+]
